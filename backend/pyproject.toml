@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "memento-box-backend"
+version = "0.1.0"
+description = "FastAPI 기반 백엔드 서버로 사진 기반 회상 대화 및 CIST 인지 평가를 지원합니다."
+authors = ["Memento Team <team@memento.com>"]
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "0.115.4"
+uvicorn = {extras = ["standard"], version = "0.32.1"}
+supabase = "2.9.1"
+pydantic = "2.10.3"
+pydantic-settings = "2.6.1"
+python-multipart = "0.0.19"
+python-jose = {extras = ["cryptography"], version = "3.3.0"}
+passlib = {extras = ["bcrypt"], version = "1.7.4"}
+python-dotenv = "1.0.1"
+pillow = "11.0.0"
+aiofiles = "24.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "8.3.4"
+httpx = "^0.26"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
