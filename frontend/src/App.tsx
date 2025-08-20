@@ -5,6 +5,8 @@ import HomePage from './pages/HomePage';
 import PhotoUploadPage from './pages/PhotoUploadPage';
 import ConversationPage from './pages/ConversationPage';
 import ReportsPage from './pages/ReportsPage';
+import LoginPage from './pages/LoginPage';
+import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
 function App() {
@@ -12,7 +14,12 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<Layout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>
             <Route index element={<HomePage />} />
             <Route path="photos" element={<PhotoUploadPage />} />
             <Route path="conversation" element={<ConversationPage />} />

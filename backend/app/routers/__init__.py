@@ -1,6 +1,7 @@
-from .auth import router as auth_router
-from .users import router as users_router  
-from .photos import router as photos_router
+# Only sessions router is needed for complex logic processing
 from .sessions import router as sessions_router
 
-__all__ = ["auth_router", "users_router", "photos_router", "sessions_router"]
+__all__ = ["sessions_router"]
+
+# Note: auth, users, photos routers removed - using Supabase directly from frontend
+# Only complex logic routers (sessions for AI/CIST evaluation) remain

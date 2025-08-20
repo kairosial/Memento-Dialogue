@@ -5,13 +5,13 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
 from .core.config import settings
-from .routers import auth_router, users_router, photos_router, sessions_router
+from .routers import sessions_router
 
 # Create FastAPI app
 app = FastAPI(
     title=settings.app_name,
-    description="Memento Box API for photo-based cognitive assessment and reminiscence therapy",
-    version="1.0.0",
+    description="Memento Box API - Complex logic processing (AI, CIST evaluation, reports). Basic CRUD operations are handled directly via Supabase.",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -19,7 +19,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -102,10 +102,10 @@ async def root():
 # Include routers with API prefix
 API_V1_PREFIX = "/api/v1"
 
-app.include_router(auth_router, prefix=API_V1_PREFIX)
-app.include_router(users_router, prefix=API_V1_PREFIX)
-app.include_router(photos_router, prefix=API_V1_PREFIX)
+# Only include sessions router for complex logic (AI, CIST evaluation)
 app.include_router(sessions_router, prefix=API_V1_PREFIX)
+
+# Note: Auth, users, photos routers removed - using Supabase directly from frontend
 
 
 # Run the application

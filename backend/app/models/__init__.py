@@ -1,26 +1,14 @@
-from .user import (
-    UserCreate, UserUpdate, UserResponse, UserLogin, 
-    UserOnboarding, Token, TokenData
-)
-from .photo import (
-    PhotoCreate, PhotoUpdate, PhotoResponse, PhotoListResponse,
-    AlbumCreate, AlbumUpdate, AlbumResponse
-)
+# Only session models are needed for complex logic processing
 from .session import (
     SessionCreate, SessionUpdate, SessionResponse, SessionListResponse,
     ConversationCreate, ConversationUpdate, ConversationResponse
 )
 
 __all__ = [
-    # User models
-    "UserCreate", "UserUpdate", "UserResponse", "UserLogin", 
-    "UserOnboarding", "Token", "TokenData",
-    
-    # Photo models
-    "PhotoCreate", "PhotoUpdate", "PhotoResponse", "PhotoListResponse",
-    "AlbumCreate", "AlbumUpdate", "AlbumResponse",
-    
-    # Session models
+    # Session models (for complex AI and CIST evaluation logic)
     "SessionCreate", "SessionUpdate", "SessionResponse", "SessionListResponse",
     "ConversationCreate", "ConversationUpdate", "ConversationResponse"
 ]
+
+# Note: User, photo, and album models removed - using Supabase directly from frontend
+# Only complex logic models (sessions, conversations) remain

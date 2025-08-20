@@ -145,6 +145,35 @@
   margin: 0;
 }
 
+/* Protected Route Loading */
+.protected-route-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+}
+
+.protected-route-loading .loading-spinner {
+  text-align: center;
+}
+
+.protected-route-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+.protected-route-loading p {
+  font-size: 18px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .header-container {

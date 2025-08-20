@@ -19,10 +19,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     
     # CORS
-    allowed_origins: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173"
-    ]
+    allowed_origins: str = "http://localhost:3000,http://localhost:5173"
+    
+    @property
+    def cors_origins(self) -> List[str]:
+        return [origin.strip() for origin in self.allowed_origins.split(",")]
     
     class Config:
         env_file = ".env"
