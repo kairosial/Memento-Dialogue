@@ -1,4 +1,3 @@
-import { useGoogleLogin } from '@react-oauth/google';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -18,57 +17,18 @@ export default function GoogleLoginButton({
   const [isLoading, setIsLoading] = useState(false);
   const { signInWithGoogle } = useAuth();
 
-  let login: (() => void) | null = null;
-  
-  try {
-    login = useGoogleLogin({
-      onSuccess: async (tokenResponse) => {
-        setIsLoading(true);
-        try {
-          console.log('Google tokenResponse:', tokenResponse);
-          
-          // Google access token을 사용하여 사용자 정보 가져오기
-          const userInfoResponse = await fetch(
-            `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokenResponse.access_token}`
-          );
-          
-          if (!userInfoResponse.ok) {
-            throw new Error('Failed to get user info from Google');
-          }
-          
-          const userInfo = await userInfoResponse.json();
-          console.log('Google userInfo:', userInfo);
-          
-          // ID token이 있는지 확인 (없다면 access token 사용)
-          const token = (tokenResponse as any).id_token || tokenResponse.access_token;
-          console.log('Using token:', token ? 'token available' : 'no token');
-          
-          // Supabase에 로그인 시도
-          await signInWithGoogle(token, userInfo);
-          onSuccess?.();
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : '구글 로그인 중 오류가 발생했습니다';
-          onError?.(errorMessage);
-        } finally {
-          setIsLoading(false);
-        }
-      },
-      onError: () => {
-        const errorMessage = '구글 로그인을 실행할 수 없습니다. 다시 시도해 주세요.';
-        onError?.(errorMessage);
-      },
-      scope: 'openid email profile'
-    });
-  } catch (error) {
-    console.warn('Google OAuth not properly configured:', error);
-    login = () => {
-      onError?.('Google OAuth가 설정되지 않았습니다. 환경 변수를 확인해주세요.');
-    };
-  }
-
-  const handleClick = () => {
-    if (!disabled && !isLoading && login) {
-      login();
+  const handleClick = async () => {
+    if (disabled || isLoading) return;
+    
+    setIsLoading(true);
+    try {
+      await signInWithGoogle();
+      onSuccess?.();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '구글 로그인 중 오류가 발생했습니다';
+      onError?.(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 

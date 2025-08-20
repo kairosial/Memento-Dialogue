@@ -1,10 +1,28 @@
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function HomePage() {
+  const { signOut, user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   return (
     <div className="page-container">
       <h1>메멘토 박스</h1>
       <p>사진으로 시작하는 추억 여행과 자연스러운 인지 기능 점검</p>
+      
+      <div style={{ margin: '20px 0', padding: '10px', background: '#f0f0f0', borderRadius: '8px' }}>
+        <p>현재 로그인: {user?.email}</p>
+        <button onClick={handleLogout} style={{ padding: '8px 16px', background: '#ff4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          로그아웃 (테스트용)
+        </button>
+      </div>
       
       <div className="navigation-cards">
         <Link to="/photos" className="nav-card">
