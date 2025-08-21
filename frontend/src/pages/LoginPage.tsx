@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/GoogleLoginButton';
-import ErrorToast from '../components/ErrorToast';
 import '../components/GoogleLoginButton.css';
-import '../components/ErrorToast.css';
 import './LoginPage.css';
 
 export default function LoginPage() {
@@ -28,9 +26,6 @@ export default function LoginPage() {
     setIsLogging(false);
   };
 
-  const closeErrorToast = () => {
-    setError(null);
-  };
 
   if (loading) {
     return (

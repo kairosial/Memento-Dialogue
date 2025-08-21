@@ -9,25 +9,31 @@ import LoginPage from './pages/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<HomePage />} />
+        <Route path="photos" element={<PhotoUploadPage />} />
+        <Route path="conversation" element={<ConversationPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+      </Route>
+    </Routes>
+  );
+}
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<HomePage />} />
-            <Route path="photos" element={<PhotoUploadPage />} />
-            <Route path="conversation" element={<ConversationPage />} />
-            <Route path="reports" element={<ReportsPage />} />
-          </Route>
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </Router>
   );
 }
 

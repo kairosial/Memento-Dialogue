@@ -6,15 +6,15 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, isLoggingOut } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || isLoggingOut) {
     return (
       <div className="protected-route-loading">
         <div className="loading-spinner">
           <div className="spinner"></div>
-          <p>인증 상태를 확인하는 중...</p>
+          <p>{isLoggingOut ? '로그아웃 중...' : '인증 상태를 확인하는 중...'}</p>
         </div>
       </div>
     );

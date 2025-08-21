@@ -37,6 +37,12 @@
   align-items: center;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
 .logo {
   text-decoration: none;
   color: white;
@@ -181,8 +187,15 @@
     gap: 1rem;
   }
   
+  .header-right {
+    gap: 1rem;
+    flex-direction: column;
+    width: 100%;
+  }
+  
   .nav {
     gap: 1rem;
+    order: 2;
   }
   
   .nav-link {
