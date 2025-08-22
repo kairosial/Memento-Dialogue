@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
 from .core.config import settings
-from .routers import sessions_router
+from .routers import sessions_router, websocket_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -102,8 +102,9 @@ async def root():
 # Include routers with API prefix
 API_V1_PREFIX = "/api/v1"
 
-# Only include sessions router for complex logic (AI, CIST evaluation)
+# Include complex logic routers
 app.include_router(sessions_router, prefix=API_V1_PREFIX)
+app.include_router(websocket_router, prefix=API_V1_PREFIX)
 
 # Note: Auth, users, photos routers removed - using Supabase directly from frontend
 
