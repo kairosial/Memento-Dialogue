@@ -93,7 +93,10 @@ describe('GoogleLoginButton Accessibility Tests', () => {
 
     // Test with keyboard navigation rules
     const results = await axe(container, {
-      tags: ['keyboard']
+      rules: {
+        'keyboard': { enabled: true },
+        'focus-order-semantics': { enabled: true }
+      }
     });
     
     expect(results).toHaveNoViolations();
@@ -107,7 +110,11 @@ describe('GoogleLoginButton Accessibility Tests', () => {
     );
 
     const results = await axe(container, {
-      tags: ['wcag2a', 'wcag2aa', 'wcag21aa']
+      rules: {
+        'wcag2a': { enabled: true },
+        'wcag2aa': { enabled: true },
+        'wcag21aa': { enabled: true }
+      }
     });
     
     expect(results).toHaveNoViolations();

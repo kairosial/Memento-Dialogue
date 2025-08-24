@@ -1,5 +1,5 @@
 import { useEffect, useRef, memo } from 'react';
-import { ConversationMessage } from '../../types/conversation';
+import type { ConversationMessage } from '../../types/conversation';
 import { MessageBubble } from './MessageBubble';
 import { Loader2, AlertCircle } from 'lucide-react';
 

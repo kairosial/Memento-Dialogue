@@ -1,5 +1,5 @@
 import { useState, memo } from 'react';
-import { PhotoContext } from '../../types/conversation';
+import type { PhotoContext } from '../../types/conversation';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Eye, EyeOff } from 'lucide-react';
 
 interface PhotoViewerProps {

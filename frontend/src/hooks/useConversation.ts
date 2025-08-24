@@ -1,11 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { 
+import type { 
   ConversationState, 
   ConversationMessage, 
   ConversationSession, 
   PhotoContext,
-  WebSocketMessage,
-  ConversationResponse 
+  WebSocketMessage
 } from '../types/conversation';
 import { useWebSocket } from './useWebSocket';
 
@@ -88,7 +87,12 @@ export function useConversation({
 
           // 세션 완료 체크
           if (wsMessage.session_info?.is_complete) {
-            onSessionComplete?.(prev => prev.session!);
+            setState(prevState => {
+              if (prevState.session) {
+                onSessionComplete?.(prevState.session);
+              }
+              return prevState;
+            });
           }
         }
         break;
@@ -143,7 +147,7 @@ export function useConversation({
     }));
   }, []);
 
-  const handleWebSocketError = useCallback((error: Event) => {
+  const handleWebSocketError = useCallback((_error: Event) => {
     setState(prev => ({
       ...prev,
       connectionStatus: 'error',
@@ -207,8 +211,8 @@ export function useConversation({
         messages: [welcomeMessage]
       }));
 
-    } catch (error) {
-      console.error('Failed to start session:', error);
+    } catch (err) {
+      console.error('Failed to start session:', err);
       onError?.('세션 시작 실패');
     }
   }, [userId, onError]);

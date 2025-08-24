@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { WebSocketMessage, ConversationMessage } from '../types/conversation';
+import type { WebSocketMessage } from '../types/conversation';
 
 interface UseWebSocketOptions {
   url: string;

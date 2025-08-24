@@ -5,16 +5,12 @@ import { MessageInput } from '../components/conversation/MessageInput';
 import { PhotoViewer } from '../components/conversation/PhotoViewer';
 import { CISTProgressBar } from '../components/conversation/CISTProgressBar';
 import { useConversation } from '../hooks/useConversation';
-import { PhotoContext } from '../types/conversation';
+import type { PhotoContext } from '../types/conversation';
 import { 
-  Camera, 
-  Image as ImageIcon, 
-  Settings, 
   Wifi, 
   WifiOff, 
   AlertCircle,
   Play,
-  Pause,
   BarChart3
 } from 'lucide-react';
 
@@ -57,7 +53,6 @@ export default function ConversationPage() {
     state,
     startSession,
     sendMessage,
-    endSession,
     selectPhoto,
     reconnect
   } = useConversation({

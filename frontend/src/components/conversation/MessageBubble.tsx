@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { ConversationMessage } from '../../types/conversation';
+import type { ConversationMessage } from '../../types/conversation';
 import { User, Bot, Clock, CheckCircle } from 'lucide-react';
 
 interface MessageBubbleProps {
