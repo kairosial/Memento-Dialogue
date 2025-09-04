@@ -6,7 +6,13 @@ import os
 from supabase import create_client, Client
 import uuid
 from datetime import datetime
-from core.config import settings
+from app.core.config import settings
+from .dialogue_prompt import (
+    ROUTER_PROMPT,
+    STANDARD_RESPONSE_PROMPT,
+    FALLBACK_PROMPT,
+    CACHE_RETRIEVE_AND_EVALUATE_PROMPT
+)
 
 class WorkflowInput(TypedDict):
     """그래프 실행을 위해 외부에서 주입되는 초기 데이터"""
@@ -34,6 +40,8 @@ class GraphState(TypedDict):
     photo_info: Optional[Dict[str, Any]]  # 사진 정보 저장
     session_id: Optional[str]  # 세션 ID 저장
     _authenticated_client: Optional[Client]  # 인증된 Supabase 클라이언트
+    turn_count: int  # 현재 턴 수 (conversation_order 기반)
+    assessment_completed: Dict[str, bool]  # 평가 완료 상태 {"time_orientation": bool, "language_naming": bool}
 
 class DialogueWorkflow:
     """LangGraph 기반 대화 워크플로우 시스템"""
@@ -115,6 +123,8 @@ class DialogueWorkflow:
         # 노드 추가
         workflow.add_node("init_state", self.init_state_node)
         workflow.add_node("router", self.router_node)
+        workflow.add_node("time_orientation", self.time_orientation_node)
+        workflow.add_node("language_naming", self.language_naming_node)
         workflow.add_node("standard_response", self.standard_response_node)
         workflow.add_node("cache_retrieve", self.cache_retrieve_and_evaluate_node)
         workflow.add_node("fallback", self.fallback_node)
@@ -128,10 +138,14 @@ class DialogueWorkflow:
             "router",
             self._route_decision,
             {
+                "time_orientation": "time_orientation",
+                "language_naming": "language_naming", 
                 "standard_chat": "standard_response",
                 "assessment_chat": "cache_retrieve"
             }
         )
+        workflow.add_edge("time_orientation", END)
+        workflow.add_edge("language_naming", END)
         workflow.add_edge("standard_response", END)
         workflow.add_conditional_edges(
             "cache_retrieve",
@@ -162,7 +176,7 @@ class DialogueWorkflow:
             if photo_context.get("photo_id"):
                 try:
                     photo_response = client.table("photos").select(
-                        "id, filename, file_path, description, tags, location_name"
+                        "id, filename, file_path, description, tags, location_name, photo_analyze_result"
                     ).eq("id", photo_context["photo_id"]).single().execute()
                     
                     if photo_response.data:
@@ -177,10 +191,14 @@ class DialogueWorkflow:
             
             # 해당 세션의 기존 대화 내역 조회
             conversations_response = client.table("conversations").select(
-                "id, question_text, user_response_text, conversation_order"
+                "id, ai_output, user_input, conversation_order"
             ).eq("session_id", session_id).order("conversation_order").execute()
             
             print(f"💬 기존 대화 내역: {len(conversations_response.data) if conversations_response.data else 0}개")
+            
+            # 현재 턴 수 계산 (다음 conversation_order)
+            current_turn = len(conversations_response.data) + 1 if conversations_response.data else 1
+            print(f"📊 현재 턴 수: {current_turn}")
             
             # 메시지 히스토리 구성
             system_content = "당신은 치매 진단을 위한 따뜻한 대화 시스템입니다."
@@ -192,20 +210,22 @@ class DialogueWorkflow:
             # 기존 대화 내용 추가
             if conversations_response.data:
                 for conv in conversations_response.data:
-                    if conv.get("question_text"):
+                    if conv.get("ai_output"):
                         message_history.append({
                             "role": "assistant", 
-                            "content": conv["question_text"]
+                            "content": conv["ai_output"]
                         })
-                    if conv.get("user_response_text"):
+                    if conv.get("user_input"):
                         message_history.append({
                             "role": "user", 
-                            "content": conv["user_response_text"]
+                            "content": conv["user_input"]
                         })
             
             state["message_history"] = message_history
             state["intermediate"] = {"cache_score": None, "routing_decision": ""}
             state["output"] = {"response_text": "", "response_audio_url": None}
+            state["turn_count"] = current_turn
+            state["assessment_completed"] = {"time_orientation": False, "language_naming": False}
             
             # photo_info와 session_id를 상태에 저장
             if photo_info:
@@ -220,44 +240,141 @@ class DialogueWorkflow:
             state["intermediate"] = {"cache_score": None, "routing_decision": ""}
             state["output"] = {"response_text": "", "response_audio_url": None}
             state["session_id"] = conversation_id
+            state["turn_count"] = 1  # 에러시 첫 번째 턴으로 가정
+            state["assessment_completed"] = {"time_orientation": False, "language_naming": False}
         
         return state
     
     def router_node(self, state: GraphState) -> GraphState:
-        """라우터 노드: 인지기능 평가 질문 삽입 여부 결정"""
+        """라우터 노드: 턴 수에 따른 평가 라우팅"""
+        turn_count = state.get("turn_count", 1)
         user_message = state["input_data"]["user_message"]
-        message_history = state["message_history"]
         
-        routing_prompt = f"""
-        현재 대화 맥락을 분석하여 다음 중 하나를 선택하세요:
+        print(f"🔀 라우터 노드: turn_count={turn_count}")
         
-        1. standard_chat: 일반적인 일상 대화 진행
-        2. assessment_chat: 인지기능 평가 질문 삽입
+        # 첫 번째와 두 번째 턴은 rule-based로 평가 노드로 라우팅
+        if turn_count == 1:
+            routing_decision = "time_orientation"
+            print("🕐 첫 번째 턴 → 시간 지남력 평가")
+        elif turn_count == 2:
+            routing_decision = "language_naming"
+            print("🗣️ 두 번째 턴 → 언어기능 평가")
+        else:
+            # 세 번째 턴부터는 기존 LangGraph 워크플로우 사용
+            print("💬 세 번째 턴 이후 → 기존 워크플로우 사용")
+            
+            # 기존 라우터 로직 사용
+            message_history = state["message_history"]
+            
+            # dialogue_prompt.py의 ROUTER_PROMPT 사용
+            from .dialogue_prompt import ROUTER_PROMPT
+            routing_prompt = ROUTER_PROMPT
+            
+            try:
+                response = self.llm_mini.invoke([
+                    SystemMessage(content=routing_prompt),
+                    HumanMessage(content=f"사용자 메시지: {user_message}\n대화 히스토리: {message_history}")
+                ])
+                
+                routing_decision = response.content.strip().lower()
+                if routing_decision not in ["standard_chat", "assessment_chat"]:
+                    routing_decision = "standard_chat"  # 기본값
+                    
+            except Exception as e:
+                print(f"Router decision failed: {e}")
+                routing_decision = "standard_chat"
         
-        사용자 메시지: {user_message}
+        state["intermediate"]["routing_decision"] = routing_decision
+        print(f"✅ 라우팅 결정: {routing_decision}")
         
-        다음 기준으로 판단하세요:
-        - 사용자가 기억력, 시간, 장소에 대해 언급하거나 혼란을 보이면 → assessment_chat
-        - 일반적인 사진 설명이나 일상 대화이면 → standard_chat
+        return state
+    
+    def time_orientation_node(self, state: GraphState) -> GraphState:
+        """시간 지남력 평가 노드 (첫 번째 턴)"""
+        print("🕐 시간 지남력 평가 노드 실행")
         
-        응답은 반드시 'standard_chat' 또는 'assessment_chat' 중 하나만 답하세요.
-        """
+        # 현재 날짜 정보 가져오기
+        now = datetime.now()
+        current_year = now.year
+        current_month = now.month
+        
+        # TIME_ORIENTATION_PROMPT 사용
+        from .dialogue_prompt import TIME_ORIENTATION_PROMPT
         
         try:
-            response = self.llm_mini.invoke([
-                SystemMessage(content=routing_prompt),
-                HumanMessage(content=user_message)
-            ])
+            # 프롬프트 포맷팅
+            time_question = TIME_ORIENTATION_PROMPT.format(
+                current_year=current_year,
+                current_month=current_month
+            )
             
-            routing_decision = response.content.strip().lower()
-            if routing_decision not in ["standard_chat", "assessment_chat"]:
-                routing_decision = "standard_chat"  # 기본값
-                
-            state["intermediate"]["routing_decision"] = routing_decision
+            state["output"]["response_text"] = time_question.strip()
+            state["assessment_completed"]["time_orientation"] = True
+            print(f"✅ 시간 지남력 질문 생성 완료: {current_year}년 {current_month}월")
             
         except Exception as e:
-            print(f"Router decision failed: {e}")
-            state["intermediate"]["routing_decision"] = "standard_chat"
+            print(f"❌ 시간 지남력 질문 생성 실패: {e}")
+            state["output"]["response_text"] = f"기억 여행을 시작합니다. 여행을 떠나는 오늘은 {current_year}년 {current_month}월 며칠인가요?"
+        
+        return state
+    
+    def language_naming_node(self, state: GraphState) -> GraphState:
+        """언어기능(이름대기) 평가 노드 (두 번째 턴)"""
+        print("🗣️ 언어기능 평가 노드 실행")
+        
+        photo_info = state.get("photo_info", {})
+        
+        try:
+            # 사진 분석 결과에서 key_objects 추출
+            photo_analyze_result = photo_info.get('photo_analyze_result', {})
+            key_objects = photo_analyze_result.get('key_objects', [])
+            
+            if not key_objects:
+                # key_objects가 없으면 기본 응답
+                state["output"]["response_text"] = "답변 감사해요. 그럼 지금부터 과거로 거슬러 올라가 보겠습니다... 3.. 2.. 1. 이 사진에서 보이는 것들을 하나씩 말씀해 주시겠어요?"
+                print("⚠️ 사진에 key_objects가 없어 기본 질문 사용")
+            else:
+                # 첫 번째 객체를 선택하여 질문 생성
+                selected_object = key_objects[0] if key_objects else "물건"
+                
+                # 사진이 찍힌 연도 계산 (taken_at 기준, 없으면 created_at 사용)
+                taken_at = photo_info.get('taken_at') or photo_info.get('created_at')
+                years_diff = 0
+                if taken_at:
+                    try:
+                        # ISO 형식의 날짜 파싱
+                        if isinstance(taken_at, str):
+                            taken_date = datetime.fromisoformat(taken_at.replace('Z', '+00:00'))
+                        else:
+                            taken_date = taken_at
+                        
+                        years_diff = datetime.now().year - taken_date.year
+                        if years_diff < 0:
+                            years_diff = 0
+                    except Exception as date_error:
+                        print(f"⚠️ 날짜 파싱 오류: {date_error}")
+                        years_diff = 0
+                
+                # NAMING_PROMPT 사용
+                from .dialogue_prompt import NAMING_PROMPT
+                
+                photo_description = photo_info.get('description', '사진')
+                
+                # 객체 위치 기반 질문 생성 (간단한 버전)
+                if years_diff > 0:
+                    response_text = f"답변 감사해요. 그럼 지금부터 {years_diff}년 전으로 거슬러 올라가 보겠습니다... 3.. 2.. 1. 사진에서 보이는 {selected_object} 같은 것이 무엇인지 말씀해 주시겠어요?"
+                else:
+                    response_text = "답변 감사해요. 그럼 지금부터 과거로 거슬러 올라가 보겠습니다... 3.. 2.. 1. 사진에서 보이는 것들 중 하나를 가리켜서 이름을 말씀해 주시겠어요?"
+                
+                state["output"]["response_text"] = response_text
+                print(f"✅ 언어기능 질문 생성 완료: {selected_object} 기반")
+            
+            state["assessment_completed"]["language_naming"] = True
+            
+        except Exception as e:
+            print(f"❌ 언어기능 질문 생성 실패: {e}")
+            state["output"]["response_text"] = "답변 감사해요. 그럼 지금부터 과거로 거슬러 올라가 보겠습니다... 3.. 2.. 1. 이 사진에서 보이는 것 중 하나를 말씀해 주시겠어요?"
+            state["assessment_completed"]["language_naming"] = True
         
         return state
     
@@ -266,26 +383,42 @@ class DialogueWorkflow:
         user_message = state["input_data"]["user_message"]
         photo_context = state["input_data"]["photo_context"]
         photo_info = state.get("photo_info", {})
+        message_history = state.get("message_history", [])
         
         # 사진 정보 포함한 컨텍스트 구성
         photo_description = ""
         if photo_info:
-            photo_description = f"사진 정보: {photo_info.get('description', '')}, 위치: {photo_info.get('location_name', '')}, 태그: {', '.join(photo_info.get('tags', []))}"
+            # 기본 사진 정보
+            basic_info = f"사진 정보: {photo_info.get('description', '')}, 위치: {photo_info.get('location_name', '')}, 태그: {', '.join(photo_info.get('tags', []))}"
+            
+            # 분석 결과 추가
+            analyze_result = photo_info.get('photo_analyze_result')
+            if analyze_result:
+                analysis_info = []
+                if analyze_result.get('caption'):
+                    analysis_info.append(f"분석 설명: {analyze_result['caption']}")
+                if analyze_result.get('mood'):
+                    analysis_info.append(f"분위기: {analyze_result['mood']}")
+                if analyze_result.get('key_objects'):
+                    analysis_info.append(f"주요 객체: {', '.join(analyze_result['key_objects'])}")
+                if analyze_result.get('people_description'):
+                    analysis_info.append(f"인물: {analyze_result['people_description']}")
+                if analyze_result.get('time_of_day'):
+                    analysis_info.append(f"시간대: {analyze_result['time_of_day']}")
+                
+                if analysis_info:
+                    photo_description = f"{basic_info}\n분석 결과: {', '.join(analysis_info)}"
+                else:
+                    photo_description = basic_info
+            else:
+                photo_description = basic_info
         
-        conversation_prompt = f"""
-        사용자와 자연스럽고 따뜻한 대화를 나누세요.
-        
-        사용자 메시지: {user_message}
-        {photo_description}
-        
-        응답 원칙:
-        1. 50자 이내로 간결하게 답변
-        2. 따뜻하고 공감적인 어조
-        3. 사진과 관련된 내용이면 구체적으로 언급
-        4. 추가 질문으로 대화 이어가기
-        
-        한 번에 하나의 질문만 해주세요.
-        """
+        # dialogue_prompt.py의 STANDARD_RESPONSE_PROMPT 사용 (템플릿 변수 적용)
+        conversation_prompt = STANDARD_RESPONSE_PROMPT.format(
+            photo_description=photo_description,
+            user_message=user_message,
+            message_history=message_history
+        )
         
         try:
             response = self.llm_mini.invoke([
@@ -304,6 +437,7 @@ class DialogueWorkflow:
     def cache_retrieve_and_evaluate_node(self, state: GraphState) -> GraphState:
         """캐시 검색 및 평가 노드: 인지기능 평가 질문 검색"""
         user_message = state["input_data"]["user_message"]
+        message_history = state.get("message_history", [])
         
         try:
             # Supabase에서 CIST 질문 템플릿 검색
@@ -312,6 +446,10 @@ class DialogueWorkflow:
             ).limit(5).execute()
             
             if response.data:
+                # dialogue_prompt.py의 CACHE_RETRIEVE_AND_EVALUATE_PROMPT 사용
+                # 실제 구현시에는 이 프롬프트를 사용하여 가장 적합한 질문 선택
+                evaluate_prompt = CACHE_RETRIEVE_AND_EVALUATE_PROMPT
+                
                 # 간단한 유사도 평가 (실제로는 벡터 DB 사용 권장)
                 best_question = response.data[0]
                 cache_score = 0.9  # 임시 점수
@@ -332,19 +470,33 @@ class DialogueWorkflow:
         user_message = state["input_data"]["user_message"]
         conversation_id = state["input_data"]["conversation_id"]
         photo_context = state["input_data"]["photo_context"]
+        photo_info = state.get("photo_info", {})
+        message_history = state.get("message_history", [])
         
-        fallback_prompt = f"""
-        간단하고 따뜻한 응답을 생성하세요.
+        # 사진 분석 결과 요약 (fallback용 간단 버전)
+        photo_metadata = ""
+        if photo_info:
+            analyze_result = photo_info.get('photo_analyze_result')
+            if analyze_result:
+                context_parts = []
+                if analyze_result.get('caption'):
+                    context_parts.append(f"사진: {analyze_result['caption'][:50]}...")
+                if analyze_result.get('mood'):
+                    context_parts.append(f"분위기: {analyze_result['mood']}")
+                
+                if context_parts:
+                    photo_metadata = f"참고: {', '.join(context_parts)}"
         
-        사용자 메시지: {user_message}
-        
-        30자 이내로 공감하며 답변해주세요.
-        """
+        # dialogue_prompt.py의 FALLBACK_PROMPT 사용
+        fallback_prompt = FALLBACK_PROMPT
         
         try:
+            # 프롬프트에 컨텍스트 정보 포함
+            context_info = f"사용자 메시지: {user_message}\n사진 메타데이터: {photo_metadata}\n최근 대화: {message_history[-2:] if message_history else []}"
+            
             response = self.llm_nano.invoke([
                 SystemMessage(content=fallback_prompt),
-                HumanMessage(content=user_message)
+                HumanMessage(content=context_info)
             ])
             
             state["output"]["response_text"] = response.content.strip()
@@ -413,16 +565,34 @@ class DialogueWorkflow:
             next_order = len(count_response.data) + 1 if count_response.data else 1
             print(f"📊 대화 순서: {next_order}")
             
+            # 평가 유형 결정
+            routing_decision = state["intermediate"].get("routing_decision", "")
+            question_type = "open_ended"  # 기본값
+            cist_category = None
+            is_cist_item = False
+            
+            if routing_decision == "time_orientation":
+                question_type = "cist_orientation"
+                cist_category = "orientation_time"
+                is_cist_item = True
+                print("📊 시간 지남력 평가로 분류")
+            elif routing_decision == "language_naming":
+                question_type = "cist_language"
+                cist_category = "language_naming"
+                is_cist_item = True
+                print("📊 언어기능 평가로 분류")
+            
             # 대화 레코드 생성
             conversation_data = {
                 "session_id": session_id,
                 "user_id": user_id,
                 "photo_id": photo_context.get("photo_id"),
                 "conversation_order": next_order,
-                "question_text": ai_response,
-                "question_type": "open_ended",  # 기본값
-                "user_response_text": user_message,
-                "is_cist_item": False
+                "ai_output": ai_response,
+                "question_type": question_type,
+                "cist_category": cist_category,
+                "user_input": user_message,
+                "is_cist_item": is_cist_item
             }
             
             print(f"📝 대화 데이터: {conversation_data}")
@@ -448,6 +618,8 @@ class DialogueWorkflow:
             "output": {"response_text": "", "response_audio_url": None},
             "photo_info": None,
             "session_id": None,
+            "turn_count": 1,  # 기본값, init_state_node에서 실제 값으로 업데이트
+            "assessment_completed": {"time_orientation": False, "language_naming": False},
             "_authenticated_client": authenticated_client
         }
         
