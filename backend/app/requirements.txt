@@ -1,0 +1,16 @@
+fastapi>=0.104.1
+uvicorn>=0.24.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.6
+supabase>=2.0.0
+langchain>=0.1.0
+langchain-openai>=0.0.8
+langgraph>=0.0.25
+langsmith>=0.1.0
+websockets>=12.0
+celery[redis]>=5.3.6
+redis>=5.0.1
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-jose[cryptography]>=3.3.0
+passlib>=1.7.4
