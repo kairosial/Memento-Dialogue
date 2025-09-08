@@ -1,67 +1,33 @@
-# CLAUDE.md — Frontend Development Guidelines
+# FRONTEND DEVELOPMENT PROTOCOL (FLUTTER)
 
-This document defines the rules and principles for all development work inside the `/frontend` directory.  
-Claude Code must follow these instructions strictly when generating or modifying code.
+This file inherits and extends the rules from the root `CLAUDE.md`. All frontend tasks must adhere to both the root rules and the Flutter-specific protocols below.
 
----
+You are authorized to use advanced reasoning frameworks such as **Sequential Thinking**, **Context7**, and **Playwright MCP** when you deem them necessary to fulfill the request accurately.
 
-## General Principles
+## CORE ARCHITECTURE: FLUTTER (DART)
 
--   **Production Quality Only**
+Our frontend is an Android application built with Flutter. All suggestions must be compatible with the Flutter framework and Dart language.
 
-    -   All code must be written at a level suitable for **real-world production use**.
-    -   Do not generate placeholder, mock, or temporary implementations.
-    -   Every feature should be robust, maintainable, and aligned with best practices for modern frontend engineering.
+## MANDATORY PROCESS EXTENSION:
 
--   **Do Not Create New Servers**
-    -   Never create or suggest launching a separate server on a new port number.
-    -   The frontend must connect to the existing backend infrastructure (FastAPI + Supabase).
-    -   Do not generate code that spins up additional Express, Node, or custom dev servers beyond the default React development server.
+During **STEP 2: ANALYZE CURRENT SYSTEM**, your analysis must include these specific Flutter-related checkpoints:
 
----
+1.  **Widget Reusability:** Scrutinize the `lib/widgets/common/` directory. Can the requested UI be built by composing or extending existing common widgets?
+2.  **State Management:** Identify the current state management solution (e.g., Riverpod, BLoC, Provider) by analyzing `lib/providers/` or `lib/blocs/`. New state must be integrated into this existing system. Differentiate between local state (`StatefulWidget`) and application/shared state.
+3.  **Service/Repository Layer:** All communication with the backend (Supabase, FastAPI) must go through the existing service layer defined in `lib/services/` or `lib/repositories/`. Analyze the existing Supabase client instance and API service functions.
+4.  **Navigation & Routing:** New screens must be integrated into the existing routing solution (e.g., GoRouter, Navigator 2.0) defined in `lib/routes/app_router.dart`.
 
-## React Development Guidelines
+## FRONTEND RULES (violating ANY invalidates your response):
 
-1. **Framework**
+❌ **No "Monster Widgets":** Do not create large, monolithic widgets for entire screens. Decompose the UI into smaller, reusable widgets.
+❌ **No business logic in UI files:** Widget files (`lib/screens/`, `lib/widgets/`) should only contain UI and event-handling code. All business logic, data fetching, and state manipulation must be delegated to the state management layer (Providers/BLoCs).
+❌ **No hardcoded styles:** All colors, fonts, and spacing must be referenced from the central `ThemeData` object defined in `lib/theme/app_theme.dart`.
 
-    - The frontend is built with **React** (functional components, hooks preferred).
-    - Use **TypeScript (`.tsx`)** for new components whenever possible.
+✅ **Embrace Immutability:** When updating state, always create new instances of your state objects instead of mutating existing ones.
+✅ **Use the Supabase-Dart Library:** All interactions with Supabase must use the official `supabase_flutter` package. Reference the initialized client in `lib/services/supabase_service.dart`.
+✅ **Follow Effective Dart guidelines:** All generated Dart code must adhere to the official style and usage guidelines.
+✅ **Provide Full Widget Code:** When suggesting a new widget, provide the complete, self-contained Dart code for the file, including necessary imports.
 
-2. **Code Quality**
+## FINAL REMINDER:
 
-    - Follow clean code practices:
-        - Keep components small and modular.
-        - Use descriptive naming conventions.
-        - Extract reusable logic into hooks or utility functions.
-    - Include error handling and loading states for all async operations.
-
-3. **State Management**
-
-    - Prefer **React Query** (or equivalent) for server state synchronization with the backend.
-    - Use React Context or lightweight state management libraries only when needed.
-    - Avoid over-engineering with unnecessary global state.
-
-4. **Styling**
-
-    - Use **Tailwind CSS** for styling.
-    - Components should follow a **consistent design system** (rounded corners, spacing, typography hierarchy).
-
-5. **Integration with Backend**
-
-    - All API calls must go through the existing backend (FastAPI or Supabase endpoints).
-    - Do not hardcode alternative servers or ports.
-    - Respect the separation of concerns:
-        - Frontend = UI, UX, state management.
-        - Backend = business logic, data processing.
-
-6. **Testing**
-    - Include **basic test coverage** (e.g., with Jest + React Testing Library).
-    - Focus on testing critical UI flows and API interactions.
-
----
-
-## Summary
-
--   **No placeholder code. No temporary hacks.**
--   **Do not spin up new servers or ports.**
--   **React code must be production-ready, maintainable, and integrated with the existing backend.**
+Before you suggest creating a new reusable widget, you must first explain why existing widgets in `lib/widgets/common/` cannot be adapted by passing different parameters. Before adding new application state, explain why the required data cannot be derived or combined from existing state providers/BLoCs.
